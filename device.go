@@ -22,7 +22,6 @@ import (
 )
 
 const TIME_LAYOUT = "2006-01-02T15:04:05"
-
 // Record 录像
 type Record struct {
 	DeviceID  string
@@ -57,7 +56,7 @@ const (
 
 type Device struct {
 	//*transaction.Core `json:"-" yaml:"-"`
-	ID              string
+	ID              string `gorm:"primaryKey"`
 	Name            string
 	Manufacturer    string
 	Model           string
@@ -180,7 +179,14 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		}
 		d.Info("StoreDevice", zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 		Devices.Store(id, d)
-		db.Create(&d)
+
+		var count int64
+		db.Model(&Device{}).Where("id = ?", id).Count(&count)
+		if(count==0){
+			db.Create(&d)
+		}else{
+			db.Save(&d)
+		}
 	//	c.SaveDevices()
 	}
 	return
@@ -190,6 +196,7 @@ func (c *GB28181Config) ReadDevices() {
 	var items []*Device
 	db := 	m7sdb.MysqlDB()
 	result := db.Where("type = ?", 2).Find(&items)
+	
 	if(result.RowsAffected>0){
 		for _, item := range items {
 			if time.Since(item.UpdateTime) < conf.RegisterValidity {
@@ -230,9 +237,11 @@ func (c *GB28181Config) SaveDevices() {
 }
 
 func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
+	db := 	m7sdb.MysqlDB()
 	if old, ok := d.channelMap.Load(info.DeviceID); ok {
 		c = old.(*Channel)
 		c.ChannelInfo = info
+		db.Save(&info)
 	} else {
 		c = &Channel{
 			device:      d,
@@ -244,12 +253,21 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 		} else {
 			c.LiveSubSP = ""
 		}
+		var count int64
+		db.Model(&ChannelInfo{}).Where("device_id = ?", info.DeviceID).Count(&count)
+		if(count==0){
+			db.Create(&info)
+		}else{
+			db.Save(&info)
+		}
 		d.channelMap.Store(info.DeviceID, c)
 	}
 	return
 }
 
 func (d *Device) deleteChannel(DeviceID string) {
+	db := 	m7sdb.MysqlDB()
+	db.Delete(&ChannelInfo{}, DeviceID)
 	d.channelMap.Delete(DeviceID)
 }
 
@@ -468,12 +486,16 @@ func (d *Device) UpdateChannelPosition(channelId string, gpsTime string, lng str
 		c.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
 		c.Longitude = lng
 		c.Latitude = lat
+		db := 	m7sdb.MysqlDB()
+		db.Save(&Device{ID: channelId, Longitude: lng, Latitude: lat})
 		c.Debug("update channel position success")
 	} else {
 		//如果未找到通道，则更新到设备上
 		d.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
 		d.Longitude = lng
 		d.Latitude = lat
+		db := 	m7sdb.MysqlDB()
+		db.Save(&Device{ID: channelId, Longitude: lng, Latitude: lat})
 		d.Debug("update device position success", zap.String("channelId", channelId))
 	}
 }
@@ -545,6 +567,8 @@ func (d *Device) channelOnline(DeviceID string) {
 	if v, ok := d.channelMap.Load(DeviceID); ok {
 		c := v.(*Channel)
 		c.Status = ChannelOnStatus
+		db := 	m7sdb.MysqlDB()
+		db.Save(&ChannelInfo{DeviceID: DeviceID, Status: ChannelOnStatus})
 		c.Debug("channel online", zap.String("channelId", DeviceID))
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
@@ -555,6 +579,8 @@ func (d *Device) channelOffline(DeviceID string) {
 	if v, ok := d.channelMap.Load(DeviceID); ok {
 		c := v.(*Channel)
 		c.Status = ChannelOffStatus
+		db := 	m7sdb.MysqlDB()
+		db.Save(&ChannelInfo{DeviceID: DeviceID, Status: ChannelOffStatus})
 		c.Debug("channel offline", zap.String("channelId", DeviceID))
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))

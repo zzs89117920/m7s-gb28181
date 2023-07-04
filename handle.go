@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ghettovoice/gosip/sip"
+	m7sdb "github.com/zzs89117920/m7s-db"
 	"github.com/zzs89117920/m7s-gb28181/utils"
 	"go.uber.org/zap"
-
-	"github.com/ghettovoice/gosip/sip"
 
 	"net/http"
 	"time"
@@ -269,7 +269,8 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 			tx.Respond(response)
 			return
 		}
-
+		db := 	m7sdb.MysqlDB()
+		db.Save(&d)
 		tx.Respond(sip.NewResponseFromRequest("", req, http.StatusOK, "OK", body))
 	} else {
 		GB28181Plugin.Debug("Unauthorized message, device not found", zap.String("id", id))
