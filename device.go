@@ -99,6 +99,8 @@ func (d *Device) MarshalJSON() ([]byte, error) {
 	})
 	return json.Marshal(data)
 }
+
+var db = 	m7sdb.MysqlDB()
 func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	from, _ := req.From()
 	d.addr = sip.Address{
@@ -141,15 +143,14 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 	}
 	deviceIp := req.Source()
 
-	db := 	m7sdb.MysqlDB()
-	var olddevice Device
-	result := db.Where("id = ?", id).Limit(1).Find(&olddevice)
-	if (result.RowsAffected>0) {
-		olddevice.UpdateTime = time.Now()
-		olddevice.NetAddr = deviceIp
-		olddevice.addr = deviceAddr
-		olddevice.Debug("UpdateDevice", zap.String("netaddr", d.NetAddr))
-		db.Save(&olddevice)
+	
+	if _d, loaded := Devices.Load(id); loaded {
+		d = _d.(*Device)
+		d.UpdateTime = time.Now()
+		d.NetAddr = deviceIp
+		d.addr = deviceAddr
+		d.Debug("UpdateDevice", zap.String("netaddr", d.NetAddr))
+		db.Save(&d)
 	} else {
 		servIp := req.Recipient().Host()
 		//根据网卡ip获取对应的公网ip
@@ -170,6 +171,12 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		if c.MediaIP != "" {
 			mediaIp = c.MediaIP
 		}
+		
+		str := "1970-01-01 00:00:00"
+    layout := "1970-01-01 00:00:00"
+
+    t, _ := time.Parse(layout, str)
+
 		d = &Device{
 			ID:           id,
 			RegisterTime: time.Now(),
@@ -180,6 +187,7 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			mediaIP:      mediaIp,
 			NetAddr:      deviceIp,
 			LastKeepaliveAt: time.Now(),
+			GpsTime: t,
 			Type: 2,
 			Logger:       GB28181Plugin.With(zap.String("id", id)),
 		}
@@ -193,7 +201,6 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 }
 func (c *GB28181Config) ReadDevices() {
 
-	db := 	m7sdb.MysqlDB()
 	
 	var items []*Device
 	result := db.Where("type = ?", 2).Find(&items)
@@ -237,13 +244,10 @@ func (c *GB28181Config) SaveDevices() {
 
 func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 
-	db := 	m7sdb.MysqlDB()
-	var channel ChannelInfo
-	result := db.Where("device_id = ?", info.DeviceID).Limit(1).Find(&channel)
-	if (result.RowsAffected > 0) {
-		
-		// db.Save(&info)
-		 c.ChannelInfo = info
+	if old, ok := d.channelMap.Load(info.DeviceID); ok {
+		db.Save(&info)
+		c = old.(*Channel)
+		c.ChannelInfo = info
 	} else {
 		c = &Channel{
 			device:      d,
@@ -262,7 +266,6 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 }
 
 func (d *Device) deleteChannel(DeviceID string) {
-	db := 	m7sdb.MysqlDB()
 	db.Delete(&ChannelInfo{}, DeviceID)
 	d.channelMap.Delete(DeviceID)
 }
@@ -286,6 +289,8 @@ func (d *Device) UpdateChannels(list ...ChannelInfo) {
 				} else {
 					c.Model = "Directory " + c.Model
 					c.Status = "NoParent"
+
+					db.Save(&c)
 				}
 			}
 		}
@@ -558,28 +563,26 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 }
 
 func (d *Device) channelOnline(DeviceID string) {
-	db := 	m7sdb.MysqlDB()
-	var channel *Channel
-	result := db.Where("device_id = ?", DeviceID).Limit(1).Find(&channel)
-	if (result.RowsAffected>0) {
-		c := channel
-		channel.Status = ChannelOnStatus
-		db.Save(c)
+	if v, ok := d.channelMap.Load(DeviceID); ok {
+		c := v.(*Channel)
+		c.Status = ChannelOnStatus
 		c.Debug("channel online", zap.String("channelId", DeviceID))
+		channelInfo := c.ChannelInfo
+		channelInfo.Status = c.Status
+		db.Save(&channelInfo)
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
 }
 
 func (d *Device) channelOffline(DeviceID string) {
-	db := 	m7sdb.MysqlDB()
-	var channel *Channel
-	result := db.Where("device_id = ?", DeviceID).Limit(1).Find(&channel)
-	if (result.RowsAffected>0) {
-		c := channel
+	if v, ok := d.channelMap.Load(DeviceID); ok {
+		c := v.(*Channel)
 		c.Status = ChannelOffStatus
-		db.Save(c)
 		c.Debug("channel offline", zap.String("channelId", DeviceID))
+		channelInfo := c.ChannelInfo
+		channelInfo.Status = c.Status
+		db.Save(&channelInfo)
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
