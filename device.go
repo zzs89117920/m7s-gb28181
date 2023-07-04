@@ -182,6 +182,7 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
 			NetAddr:      deviceIp,
+			LastKeepaliveAt: time.Now(),
 			Type: 2,
 			Logger:       GB28181Plugin.With(zap.String("id", id)),
 		}
@@ -241,8 +242,8 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 
 	db := 	m7sdb.MysqlDB()
 	var channel ChannelInfo
-	result := db.Where("device_id = ?", info.DeviceID).First(&channel)
-	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
+	result := db.Where("device_id = ?", info.DeviceID).Limit(1).Find(&channel)
+	if (result.RowsAffected > 0) {
 		
 		// db.Save(&info)
 		 c.ChannelInfo = info
@@ -562,8 +563,8 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 func (d *Device) channelOnline(DeviceID string) {
 	db := 	m7sdb.MysqlDB()
 	var channel *Channel
-	result := db.Where("device_id = ?", DeviceID).First(&channel)
-	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
+	result := db.Where("device_id = ?", DeviceID).Limit(1).Find(&channel)
+	if (result.RowsAffected>0) {
 		c := channel
 		channel.Status = ChannelOnStatus
 		db.Save(c)
@@ -576,8 +577,8 @@ func (d *Device) channelOnline(DeviceID string) {
 func (d *Device) channelOffline(DeviceID string) {
 	db := 	m7sdb.MysqlDB()
 	var channel *Channel
-	result := db.Where("device_id = ?", DeviceID).First(&channel)
-	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
+	result := db.Where("device_id = ?", DeviceID).Limit(1).Find(&channel)
+	if (result.RowsAffected>0) {
 		c := channel
 		c.Status = ChannelOffStatus
 		db.Save(c)
