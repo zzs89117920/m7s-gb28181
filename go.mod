@@ -1,6 +1,6 @@
 module github.com/zzs89117920/m7s-gb28181
 
-go 1.19
+go 1.20
 
 require (
 	github.com/ghettovoice/gosip v0.0.0-20221121090201-9a2ed2233b6d

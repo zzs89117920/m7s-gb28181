@@ -64,7 +64,7 @@ type Device struct {
 	Owner           string
 	RegisterTime    time.Time
 	UpdateTime      time.Time
-	LastKeepaliveAt time.Time
+	LastKeepaliveAt *time.Time
 	Status          DeviceStatus
 	sn              int
 	addr            sip.Address
@@ -76,11 +76,10 @@ type Device struct {
 		CallID  string
 		Timeout time.Time
 	}
-	lastSyncTime time.Time
-	GpsTime      time.Time //gps时间
+	lastSyncTime *time.Time
+	GpsTime      *time.Time //gps时间
 	Longitude    string    //经度
 	Latitude     string    //纬度
-	Type int
 	*log.Logger  `json:"-" yaml:"-"`
 }
 
@@ -99,8 +98,6 @@ func (d *Device) MarshalJSON() ([]byte, error) {
 	})
 	return json.Marshal(data)
 }
-
-
 func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	from, _ := req.From()
 	d.addr = sip.Address{
@@ -142,8 +139,6 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		Uri:         from.Address,
 	}
 	deviceIp := req.Source()
-
-	
 	db := 	m7sdb.MysqlDB()
 	if _d, loaded := Devices.Load(id); loaded {
 		d = _d.(*Device)
@@ -172,12 +167,6 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		if c.MediaIP != "" {
 			mediaIp = c.MediaIP
 		}
-		
-		str := "1970-01-01 00:00:00"
-    layout := "1970-01-01 00:00:00"
-
-    t, _ := time.Parse(layout, str)
-
 		d = &Device{
 			ID:           id,
 			RegisterTime: time.Now(),
@@ -187,22 +176,17 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
 			NetAddr:      deviceIp,
-			LastKeepaliveAt: time.Now(),
-			GpsTime: t,
-			Type: 2,
 			Logger:       GB28181Plugin.With(zap.String("id", id)),
 		}
 		d.Info("StoreDevice", zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 		Devices.Store(id, d)
-
 		db.Create(&d)
-		//c.SaveDevices()
+	//	c.SaveDevices()
 	}
 	return
 }
 func (c *GB28181Config) ReadDevices() {
 
-	
 	var items []*Device
 	db := 	m7sdb.MysqlDB()
 	result := db.Where("type = ?", 2).Find(&items)
@@ -216,6 +200,7 @@ func (c *GB28181Config) ReadDevices() {
 			}
 		}
 	}
+
 	// if f, err := os.OpenFile("devices.json", os.O_RDONLY, 0644); err == nil {
 	// 	defer f.Close()
 	// 	var items []*Device
@@ -245,10 +230,7 @@ func (c *GB28181Config) SaveDevices() {
 }
 
 func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
-
-	db := 	m7sdb.MysqlDB()
 	if old, ok := d.channelMap.Load(info.DeviceID); ok {
-		db.Save(&info)
 		c = old.(*Channel)
 		c.ChannelInfo = info
 	} else {
@@ -262,20 +244,16 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 		} else {
 			c.LiveSubSP = ""
 		}
-		db.Create(&info)
 		d.channelMap.Store(info.DeviceID, c)
 	}
 	return
 }
 
 func (d *Device) deleteChannel(DeviceID string) {
-	db := 	m7sdb.MysqlDB()
-	db.Delete(&ChannelInfo{}, DeviceID)
 	d.channelMap.Delete(DeviceID)
 }
 
 func (d *Device) UpdateChannels(list ...ChannelInfo) {
-	db := 	m7sdb.MysqlDB()
 	for _, c := range list {
 		if _, ok := conf.Ignores[c.DeviceID]; ok {
 			continue
@@ -294,8 +272,6 @@ func (d *Device) UpdateChannels(list ...ChannelInfo) {
 				} else {
 					c.Model = "Directory " + c.Model
 					c.Status = "NoParent"
-
-					db.Save(&c)
 				}
 			}
 		}
@@ -536,8 +512,6 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 				Secrecy:      v.Secrecy,
 				Status:       ChannelStatus(v.Status),
 			}
-
-
 			d.addOrUpdateChannel(channel)
 		case "DEL":
 			//删除
@@ -572,10 +546,6 @@ func (d *Device) channelOnline(DeviceID string) {
 		c := v.(*Channel)
 		c.Status = ChannelOnStatus
 		c.Debug("channel online", zap.String("channelId", DeviceID))
-		channelInfo := c.ChannelInfo
-		channelInfo.Status = c.Status
-		db := 	m7sdb.MysqlDB()
-		db.Save(&channelInfo)
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
@@ -586,10 +556,6 @@ func (d *Device) channelOffline(DeviceID string) {
 		c := v.(*Channel)
 		c.Status = ChannelOffStatus
 		c.Debug("channel offline", zap.String("channelId", DeviceID))
-		channelInfo := c.ChannelInfo
-		channelInfo.Status = c.Status
-		db := 	m7sdb.MysqlDB()
-		db.Save(&channelInfo)
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
