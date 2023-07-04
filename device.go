@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	m7sdb "github.com/zzs89117920/m7s-db"
 	"github.com/zzs89117920/m7s-gb28181/utils"
 	"go.uber.org/zap"
 	"m7s.live/engine/v4"
@@ -79,6 +80,7 @@ type Device struct {
 	GpsTime      time.Time //gps时间
 	Longitude    string    //经度
 	Latitude     string    //纬度
+	Type int
 	*log.Logger  `json:"-" yaml:"-"`
 }
 
@@ -177,6 +179,15 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		}
 		d.Info("StoreDevice", zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 		Devices.Store(id, d)
+
+		db := 	m7sdb.MysqlDB()
+		var olddevice Device
+
+		db.Where("id = ?", id).First(&olddevice)
+		if(olddevice.ID==""){
+			d.Type = 2
+			db.Create(&d)
+		}
 		c.SaveDevices()
 	}
 	return

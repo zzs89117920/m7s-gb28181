@@ -10,7 +10,7 @@ require (
 	go.uber.org/zap v1.23.0
 	golang.org/x/net v0.8.0
 	golang.org/x/text v0.8.0
-	m7s.live/engine/v4 v4.12.8
+	m7s.live/engine/v4 v4.13.5
 	m7s.live/plugin/ps/v4 v4.0.1
 )
 
@@ -21,6 +21,7 @@ require (
 	github.com/discoviking/fsm v0.0.0-20150126104936-f4a273feecca // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
@@ -28,6 +29,8 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/lufia/plan9stats v0.0.0-20220913051719-115f729f3c8c // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
@@ -51,6 +54,7 @@ require (
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2 // indirect
 	github.com/yapingcat/gomedia v0.0.0-20230426092936-387031404274 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	github.com/zzs89117920/m7s-db v0.0.2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
@@ -61,4 +65,6 @@ require (
 	golang.org/x/term v0.6.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/driver/mysql v1.5.1 // indirect
+	gorm.io/gorm v1.25.2 // indirect
 )
