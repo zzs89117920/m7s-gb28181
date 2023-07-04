@@ -240,12 +240,12 @@ func (c *GB28181Config) SaveDevices() {
 func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 
 	db := 	m7sdb.MysqlDB()
-	var channel *Channel
+	var channel ChannelInfo
 	result := db.Where("device_id = ?", info.DeviceID).First(&channel)
 	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
-		c = channel
-		db.Save(info)
-		c.ChannelInfo = info
+		
+		// db.Save(&info)
+		 c.ChannelInfo = info
 	} else {
 		c = &Channel{
 			device:      d,
@@ -257,7 +257,7 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 		} else {
 			c.LiveSubSP = ""
 		}
-		db.Create(info)
+		db.Create(&info)
 		d.channelMap.Store(info.DeviceID, c)
 	}
 	return
