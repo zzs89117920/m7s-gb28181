@@ -64,7 +64,7 @@ type Device struct {
 	Owner           string
 	RegisterTime    time.Time
 	UpdateTime      time.Time
-	LastKeepaliveAt *time.Time
+	LastKeepaliveAt time.Time
 	Status          DeviceStatus
 	sn              int
 	addr            sip.Address
@@ -76,8 +76,8 @@ type Device struct {
 		CallID  string
 		Timeout time.Time
 	}
-	lastSyncTime *time.Time
-	GpsTime      *time.Time //gps时间
+	lastSyncTime time.Time
+	GpsTime      time.Time //gps时间
 	Longitude    string    //经度
 	Latitude     string    //纬度
 	*log.Logger  `json:"-" yaml:"-"`
