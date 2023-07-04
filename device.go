@@ -203,6 +203,7 @@ func (c *GB28181Config) ReadDevices() {
 		for _, item := range items {
 			if time.Since(item.UpdateTime) < conf.RegisterValidity {
 				item.Status = "RECOVER"
+				db.Save(&item)
 				item.Logger = GB28181Plugin.With(zap.String("id", item.ID))
 				Devices.Store(item.ID, item)
 			}
