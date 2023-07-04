@@ -3,7 +3,6 @@ package gb28181
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,7 +13,6 @@ import (
 	m7sdb "github.com/zzs89117920/m7s-db"
 	"github.com/zzs89117920/m7s-gb28181/utils"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 	"m7s.live/engine/v4"
 	"m7s.live/engine/v4/log"
 
@@ -145,9 +143,8 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 
 	db := 	m7sdb.MysqlDB()
 	var olddevice Device
-	result := db.Where("id = ?", id).First(&olddevice)
-	
-	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
+	result := db.Where("id = ?", id).Limit(1).Find(&olddevice)
+	if (result.RowsAffected>0) {
 		olddevice.UpdateTime = time.Now()
 		olddevice.NetAddr = deviceIp
 		olddevice.addr = deviceAddr
