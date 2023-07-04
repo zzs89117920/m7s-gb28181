@@ -76,6 +76,7 @@ type Device struct {
 		Timeout time.Time
 	}
 	lastSyncTime time.Time
+	Type int
 	GpsTime      time.Time //gps时间
 	Longitude    string    //经度
 	Latitude     string    //纬度
@@ -175,6 +176,7 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
 			NetAddr:      deviceIp,
+			Type: 2,
 			Logger:       GB28181Plugin.With(zap.String("id", id)),
 		}
 		d.Info("StoreDevice", zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
