@@ -3,6 +3,7 @@ package gb28181
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	m7sdb "github.com/zzs89117920/m7s-db"
 	"github.com/zzs89117920/m7s-gb28181/utils"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 	"m7s.live/engine/v4"
 	"m7s.live/engine/v4/log"
 
@@ -140,12 +142,17 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		Uri:         from.Address,
 	}
 	deviceIp := req.Source()
-	if _d, loaded := Devices.Load(id); loaded {
-		d = _d.(*Device)
-		d.UpdateTime = time.Now()
-		d.NetAddr = deviceIp
-		d.addr = deviceAddr
-		d.Debug("UpdateDevice", zap.String("netaddr", d.NetAddr))
+
+	db := 	m7sdb.MysqlDB()
+	var olddevice Device
+	result := db.Where("id = ?", id).First(&olddevice)
+	
+	if (errors.Is(result.Error, gorm.ErrRecordNotFound) && result.RowsAffected==0) {
+		olddevice.UpdateTime = time.Now()
+		olddevice.NetAddr = deviceIp
+		olddevice.addr = deviceAddr
+		olddevice.Debug("UpdateDevice", zap.String("netaddr", d.NetAddr))
+		db.Save(&olddevice)
 	} else {
 		servIp := req.Recipient().Host()
 		//根据网卡ip获取对应的公网ip
@@ -175,37 +182,45 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
 			NetAddr:      deviceIp,
+			Type: 2,
 			Logger:       GB28181Plugin.With(zap.String("id", id)),
 		}
 		d.Info("StoreDevice", zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 		Devices.Store(id, d)
 
-		db := 	m7sdb.MysqlDB()
-		var olddevice Device
-
-		db.Where("id = ?", id).First(&olddevice)
-		if(olddevice.ID==""){
-			d.Type = 2
-			db.Create(&d)
-		}
-		c.SaveDevices()
+		db.Create(&d)
+		//c.SaveDevices()
 	}
 	return
 }
 func (c *GB28181Config) ReadDevices() {
-	if f, err := os.OpenFile("devices.json", os.O_RDONLY, 0644); err == nil {
-		defer f.Close()
-		var items []*Device
-		if err = json.NewDecoder(f).Decode(&items); err == nil {
-			for _, item := range items {
-				if time.Since(item.UpdateTime) < conf.RegisterValidity {
-					item.Status = "RECOVER"
-					item.Logger = GB28181Plugin.With(zap.String("id", item.ID))
-					Devices.Store(item.ID, item)
-				}
+
+	db := 	m7sdb.MysqlDB()
+	
+	var items []*Device
+	result := db.Where("type = ?", 2).Find(&items)
+	if(result.RowsAffected>0){
+		for _, item := range items {
+			if time.Since(item.UpdateTime) < conf.RegisterValidity {
+				item.Status = "RECOVER"
+				item.Logger = GB28181Plugin.With(zap.String("id", item.ID))
+				Devices.Store(item.ID, item)
 			}
 		}
 	}
+	// if f, err := os.OpenFile("devices.json", os.O_RDONLY, 0644); err == nil {
+	// 	defer f.Close()
+	// 	var items []*Device
+	// 	if err = json.NewDecoder(f).Decode(&items); err == nil {
+	// 		for _, item := range items {
+	// 			if time.Since(item.UpdateTime) < conf.RegisterValidity {
+	// 				item.Status = "RECOVER"
+	// 				item.Logger = GB28181Plugin.With(zap.String("id", item.ID))
+	// 				Devices.Store(item.ID, item)
+	// 			}
+	// 		}
+	// 	}
+	// }
 }
 func (c *GB28181Config) SaveDevices() {
 	var item []any
