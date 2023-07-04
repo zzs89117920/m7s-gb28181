@@ -100,7 +100,7 @@ func (d *Device) MarshalJSON() ([]byte, error) {
 	return json.Marshal(data)
 }
 
-var db = 	m7sdb.MysqlDB()
+
 func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	from, _ := req.From()
 	d.addr = sip.Address{
@@ -144,6 +144,7 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 	deviceIp := req.Source()
 
 	
+	db := 	m7sdb.MysqlDB()
 	if _d, loaded := Devices.Load(id); loaded {
 		d = _d.(*Device)
 		d.UpdateTime = time.Now()
@@ -203,6 +204,7 @@ func (c *GB28181Config) ReadDevices() {
 
 	
 	var items []*Device
+	db := 	m7sdb.MysqlDB()
 	result := db.Where("type = ?", 2).Find(&items)
 	if(result.RowsAffected>0){
 		for _, item := range items {
@@ -244,6 +246,7 @@ func (c *GB28181Config) SaveDevices() {
 
 func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 
+	db := 	m7sdb.MysqlDB()
 	if old, ok := d.channelMap.Load(info.DeviceID); ok {
 		db.Save(&info)
 		c = old.(*Channel)
@@ -266,11 +269,13 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 }
 
 func (d *Device) deleteChannel(DeviceID string) {
+	db := 	m7sdb.MysqlDB()
 	db.Delete(&ChannelInfo{}, DeviceID)
 	d.channelMap.Delete(DeviceID)
 }
 
 func (d *Device) UpdateChannels(list ...ChannelInfo) {
+	db := 	m7sdb.MysqlDB()
 	for _, c := range list {
 		if _, ok := conf.Ignores[c.DeviceID]; ok {
 			continue
@@ -569,6 +574,7 @@ func (d *Device) channelOnline(DeviceID string) {
 		c.Debug("channel online", zap.String("channelId", DeviceID))
 		channelInfo := c.ChannelInfo
 		channelInfo.Status = c.Status
+		db := 	m7sdb.MysqlDB()
 		db.Save(&channelInfo)
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
@@ -582,6 +588,7 @@ func (d *Device) channelOffline(DeviceID string) {
 		c.Debug("channel offline", zap.String("channelId", DeviceID))
 		channelInfo := c.ChannelInfo
 		channelInfo.Status = c.Status
+		db := 	m7sdb.MysqlDB()
 		db.Save(&channelInfo)
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
