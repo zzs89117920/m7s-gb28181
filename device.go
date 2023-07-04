@@ -147,7 +147,7 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 	var olddevice Device
 	result := db.Where("id = ?", id).First(&olddevice)
 	
-	if (errors.Is(result.Error, gorm.ErrRecordNotFound) && result.RowsAffected==0) {
+	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
 		olddevice.UpdateTime = time.Now()
 		olddevice.NetAddr = deviceIp
 		olddevice.addr = deviceAddr
@@ -238,8 +238,13 @@ func (c *GB28181Config) SaveDevices() {
 }
 
 func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
-	if old, ok := d.channelMap.Load(info.DeviceID); ok {
-		c = old.(*Channel)
+
+	db := 	m7sdb.MysqlDB()
+	var channel *Channel
+	result := db.Where("device_id = ?", info.DeviceID).First(&channel)
+	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
+		c = channel
+		db.Save(info)
 		c.ChannelInfo = info
 	} else {
 		c = &Channel{
@@ -252,12 +257,15 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 		} else {
 			c.LiveSubSP = ""
 		}
+		db.Create(info)
 		d.channelMap.Store(info.DeviceID, c)
 	}
 	return
 }
 
 func (d *Device) deleteChannel(DeviceID string) {
+	db := 	m7sdb.MysqlDB()
+	db.Delete(&ChannelInfo{}, DeviceID)
 	d.channelMap.Delete(DeviceID)
 }
 
@@ -520,6 +528,8 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 				Secrecy:      v.Secrecy,
 				Status:       ChannelStatus(v.Status),
 			}
+
+
 			d.addOrUpdateChannel(channel)
 		case "DEL":
 			//删除
@@ -550,9 +560,13 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 }
 
 func (d *Device) channelOnline(DeviceID string) {
-	if v, ok := d.channelMap.Load(DeviceID); ok {
-		c := v.(*Channel)
-		c.Status = ChannelOnStatus
+	db := 	m7sdb.MysqlDB()
+	var channel *Channel
+	result := db.Where("device_id = ?", DeviceID).First(&channel)
+	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
+		c := channel
+		channel.Status = ChannelOnStatus
+		db.Save(c)
 		c.Debug("channel online", zap.String("channelId", DeviceID))
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
@@ -560,9 +574,13 @@ func (d *Device) channelOnline(DeviceID string) {
 }
 
 func (d *Device) channelOffline(DeviceID string) {
-	if v, ok := d.channelMap.Load(DeviceID); ok {
-		c := v.(*Channel)
+	db := 	m7sdb.MysqlDB()
+	var channel *Channel
+	result := db.Where("device_id = ?", DeviceID).First(&channel)
+	if (!errors.Is(result.Error, gorm.ErrRecordNotFound)) {
+		c := channel
 		c.Status = ChannelOffStatus
+		db.Save(c)
 		c.Debug("channel offline", zap.String("channelId", DeviceID))
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
