@@ -134,6 +134,9 @@ func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 		if isUnregister {
 			tmpd, ok := Devices.LoadAndDelete(id)
 			if ok {
+				db := m7sdb.MysqlDB()
+				db.Where("id = ?", id).Delete(&Device{})
+				db.Where("parent_id = ?", id).Delete(&ChannelInfo{})
 				GB28181Plugin.Info("Unregister Device", zap.String("id", id))
 				d = tmpd.(*Device)
 			} else {
