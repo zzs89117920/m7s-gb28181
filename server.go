@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/logrusorgru/aurora"
+	m7sdb "github.com/zzs89117920/m7s-db"
 	"github.com/zzs89117920/m7s-gb28181/utils"
 	"go.uber.org/zap"
 
@@ -194,6 +195,7 @@ func (c *GB28181Config) removeBanDevice() {
 // - 	当设备超过注册有效期内为发送过消息，则从设备列表中删除
 // UpdateTime 在设备发送心跳之外的消息也会被更新，相对于 LastKeepaliveAt 更能体现出设备最会一次活跃的时间
 func (c *GB28181Config) statusCheck() {
+	db := 	m7sdb.MysqlDB()
 	Devices.Range(func(key, value any) bool {
 		d := value.(*Device)
 		if time.Since(d.UpdateTime) > c.RegisterValidity {
@@ -208,8 +210,11 @@ func (c *GB28181Config) statusCheck() {
 			d.channelMap.Range(func(key, value any) bool {
 				ch := value.(*Channel)
 				ch.Status = ChannelOffStatus
+				db.Save(&ChannelInfo{DeviceID: ch.DeviceID, Status: ch.Status})
 				return true
 			})
+			
+			db.Save(&Device{ID: d.ID, Status: d.Status})
 			GB28181Plugin.Info("Device offline", zap.String("id", d.ID), zap.Time("updateTime", d.UpdateTime))
 		}
 		return true
