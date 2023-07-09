@@ -211,7 +211,8 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		case DeviceRegisterStatus:
 			d.Status = DeviceOnlineStatus
 		}
-		d.UpdateTime = time.Now()
+		now := time.Now()
+		d.UpdateTime = &now
 		temp := &struct {
 			XMLName      xml.Name
 			CmdType      string
@@ -237,7 +238,8 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		var body string
 		switch temp.CmdType {
 		case "Keepalive":
-			d.LastKeepaliveAt = time.Now()
+			now := time.Now()
+			d.LastKeepaliveAt = &now
 			//callID !="" 说明是订阅的事件类型信息
 			if d.lastSyncTime.IsZero() {
 				go d.syncChannels()
@@ -250,7 +252,7 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 				})
 			}
 			//在KeepLive 进行位置订阅的处理，如果开启了自动订阅位置，则去订阅位置
-			if c.Position.AutosubPosition && time.Since(d.GpsTime) > c.Position.Interval*2 {
+			if c.Position.AutosubPosition && time.Since(*d.GpsTime) > c.Position.Interval*2 {
 				d.MobilePositionSubscribe(d.ID, c.Position.Expires, c.Position.Interval)
 				GB28181Plugin.Debug("Mobile Position Subscribe", zap.String("deviceID", d.ID))
 			}
@@ -289,7 +291,8 @@ func (c *GB28181Config) OnNotify(req sip.Request, tx sip.ServerTransaction) {
 	id := from.Address.User().String()
 	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
-		d.UpdateTime = time.Now()
+		now := time.Now()
+		d.UpdateTime = &now
 		temp := &struct {
 			XMLName   xml.Name
 			CmdType   string

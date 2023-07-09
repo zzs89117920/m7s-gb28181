@@ -198,14 +198,14 @@ func (c *GB28181Config) statusCheck() {
 	db := 	m7sdb.MysqlDB()
 	Devices.Range(func(key, value any) bool {
 		d := value.(*Device)
-		if time.Since(d.UpdateTime) > c.RegisterValidity {
+		if time.Since(*d.UpdateTime) > c.RegisterValidity {
 			Devices.Delete(key)
 			GB28181Plugin.Info("Device register timeout",
 				zap.String("id", d.ID),
-				zap.Time("registerTime", d.RegisterTime),
-				zap.Time("updateTime", d.UpdateTime),
+				zap.Time("registerTime", *d.RegisterTime),
+				zap.Time("updateTime", *d.UpdateTime),
 			)
-		} else if time.Since(d.UpdateTime) > c.HeartbeatInterval*3 {
+		} else if time.Since(*d.UpdateTime) > c.HeartbeatInterval*3 {
 			d.Status = DeviceOfflineStatus
 			d.channelMap.Range(func(key, value any) bool {
 				ch := value.(*Channel)
@@ -215,7 +215,7 @@ func (c *GB28181Config) statusCheck() {
 			})
 			
 			db.Save(&Device{ID: d.ID, Status: d.Status})
-			GB28181Plugin.Info("Device offline", zap.String("id", d.ID), zap.Time("updateTime", d.UpdateTime))
+			GB28181Plugin.Info("Device offline", zap.String("id", d.ID), zap.Time("updateTime", *d.UpdateTime))
 		}
 		return true
 	})

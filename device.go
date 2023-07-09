@@ -61,9 +61,9 @@ type Device struct {
 	Manufacturer    string
 	Model           string
 	Owner           string
-	RegisterTime    time.Time
-	UpdateTime      time.Time
-	LastKeepaliveAt time.Time
+	RegisterTime    *time.Time
+	UpdateTime      *time.Time
+	LastKeepaliveAt *time.Time
 	Status          DeviceStatus
 	sn              int
 	addr            sip.Address
@@ -77,7 +77,7 @@ type Device struct {
 	}
 	lastSyncTime time.Time
 	Type int
-	GpsTime      time.Time //gps时间
+	GpsTime      *time.Time //gps时间
 	Longitude    string    //经度
 	Latitude     string    //纬度
 	*log.Logger  `json:"-" yaml:"-"`
@@ -129,7 +129,8 @@ func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	d.sipIP = sipIP
 	d.mediaIP = mediaIp
 	d.NetAddr = deviceIp
-	d.UpdateTime = time.Now()
+	now := time.Now()
+	d.UpdateTime = &now
 }
 
 func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
@@ -142,7 +143,8 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 	db := 	m7sdb.MysqlDB()
 	if _d, loaded := Devices.Load(id); loaded {
 		d = _d.(*Device)
-		d.UpdateTime = time.Now()
+		now := time.Now()
+		d.UpdateTime = &now
 		d.NetAddr = deviceIp
 		d.addr = deviceAddr
 		d.Debug("UpdateDevice", zap.String("netaddr", d.NetAddr))
@@ -167,10 +169,11 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		if c.MediaIP != "" {
 			mediaIp = c.MediaIP
 		}
+		now := time.Now()
 		d = &Device{
 			ID:           id,
-			RegisterTime: time.Now(),
-			UpdateTime:   time.Now(),
+			RegisterTime: &now,
+			UpdateTime:   &now,
 			Status:       DeviceRegisterStatus,
 			addr:         deviceAddr,
 			sipIP:        sipIP,
@@ -201,7 +204,7 @@ func (c *GB28181Config) ReadDevices() {
 	
 	if(result.RowsAffected>0){
 		for _, item := range items {
-			if time.Since(item.UpdateTime) < conf.RegisterValidity {
+			if time.Since(*item.UpdateTime) < conf.RegisterValidity {
 				item.Status = "RECOVER"
 				db.Save(&item)
 				item.Logger = GB28181Plugin.With(zap.String("id", item.ID))
@@ -493,7 +496,8 @@ func (d *Device) UpdateChannelPosition(channelId string, gpsTime string, lng str
 		c.Debug("update channel position success")
 	} else {
 		//如果未找到通道，则更新到设备上
-		d.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
+		now := time.Now()
+		d.GpsTime = &now //时间取系统收到的时间，避免设备时间和格式问题
 		d.Longitude = lng
 		d.Latitude = lat
 		db := 	m7sdb.MysqlDB()
