@@ -293,8 +293,9 @@ func (d *Device) UpdateChannels(list ...ChannelInfo) {
 					parent.addOrUpdateChannel(c)
 					continue
 				} else {
-					c.Model = "Directory " + c.Model
-					c.Status = "NoParent"
+					// c.Model = "Directory " + c.Model
+					// c.Status = "NoParent"
+					c.ParentID = d.ID
 				}
 			}
 		}
