@@ -122,7 +122,7 @@ type Channel struct {
 // Channel 通道
 type ChannelInfo struct {
 	DeviceID     string `gorm:"primaryKey"`// 通道ID
-	ParentID     string
+	ParentID     string `gorm:"primaryKey"`
 	Name         string
 	Manufacturer string
 	Model        string

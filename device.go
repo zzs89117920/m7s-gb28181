@@ -259,7 +259,7 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 			c.LiveSubSP = ""
 		}
 		var count int64
-		db.Model(&ChannelInfo{}).Where("device_id = ?", info.DeviceID).Count(&count)
+		db.Model(&ChannelInfo{}).Where("device_id = ?", info.DeviceID).Where("parent_id = ?", info.ParentID).Count(&count)
 		if(count==0){
 			db.Create(&info)
 		}else{
@@ -270,9 +270,9 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 	return
 }
 
-func (d *Device) deleteChannel(DeviceID string) {
+func (d *Device) deleteChannel(DeviceID string, ParentID string) {
 	db := 	m7sdb.MysqlDB()
-	db.Delete(&ChannelInfo{}, DeviceID)
+	db.Where("device_id = ?", DeviceID).Where("parent_id = ?", ParentID).Delete(&ChannelInfo{}, DeviceID)
 	d.channelMap.Delete(DeviceID)
 }
 
@@ -513,16 +513,16 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 		switch v.Event {
 		case "ON":
 			d.Debug("receive channel online notify")
-			d.channelOnline(v.DeviceID)
+			d.channelOnline(v.DeviceID, v.ParentID)
 		case "OFF":
 			d.Debug("receive channel offline notify")
-			d.channelOffline(v.DeviceID)
+			d.channelOffline(v.DeviceID, v.ParentID)
 		case "VLOST":
 			d.Debug("receive channel video lost notify")
-			d.channelOffline(v.DeviceID)
+			d.channelOffline(v.DeviceID, v.ParentID)
 		case "DEFECT":
 			d.Debug("receive channel video defect notify")
-			d.channelOffline(v.DeviceID)
+			d.channelOffline(v.DeviceID, v.ParentID)
 		case "ADD":
 			d.Debug("receive channel add notify")
 			channel := ChannelInfo{
@@ -545,7 +545,7 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 		case "DEL":
 			//删除
 			d.Debug("receive channel delete notify")
-			d.deleteChannel(v.DeviceID)
+			d.deleteChannel(v.DeviceID, v.ParentID)
 		case "UPDATE":
 			d.Debug("receive channel update notify")
 			// 更新通道
@@ -570,24 +570,24 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 	}
 }
 
-func (d *Device) channelOnline(DeviceID string) {
+func (d *Device) channelOnline(DeviceID string, ParentID string) {
 	if v, ok := d.channelMap.Load(DeviceID); ok {
 		c := v.(*Channel)
 		c.Status = ChannelOnStatus
 		db := 	m7sdb.MysqlDB()
-		db.Save(&ChannelInfo{DeviceID: DeviceID, Status: ChannelOnStatus})
+		db.Save(&ChannelInfo{DeviceID: DeviceID, ParentID: ParentID , Status: ChannelOnStatus})
 		c.Debug("channel online", zap.String("channelId", DeviceID))
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
 }
 
-func (d *Device) channelOffline(DeviceID string) {
+func (d *Device) channelOffline(DeviceID string, ParentID string) {
 	if v, ok := d.channelMap.Load(DeviceID); ok {
 		c := v.(*Channel)
 		c.Status = ChannelOffStatus
 		db := 	m7sdb.MysqlDB()
-		db.Save(&ChannelInfo{DeviceID: DeviceID, Status: ChannelOffStatus})
+		db.Save(&ChannelInfo{DeviceID: DeviceID, ParentID: ParentID, Status: ChannelOffStatus})
 		c.Debug("channel offline", zap.String("channelId", DeviceID))
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
