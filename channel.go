@@ -209,16 +209,19 @@ func (channel *Channel) QueryRecord(startTime, endTime string) ([]*Record, error
 	request := d.CreateRequest(sip.MESSAGE)
 	contentType := sip.ContentType("Application/MANSCDP+xml")
 	request.AppendHeader(&contentType)
-	body := fmt.Sprintf(`<?xml version="1.0"?>
-		<Query>
-		<CmdType>RecordInfo</CmdType>
-		<SN>%d</SN>
-		<DeviceID>%s</DeviceID>
-		<StartTime>%s</StartTime>
-		<EndTime>%s</EndTime>
-		<Secrecy>0</Secrecy>
-		<Type>all</Type>
-		</Query>`, d.sn, channel.DeviceID, startTime, endTime)
+	// body := fmt.Sprintf(`<?xml version="1.0"?>
+	// 	<Query>
+	// 	<CmdType>RecordInfo</CmdType>
+	// 	<SN>%d</SN>
+	// 	<DeviceID>%s</DeviceID>
+	// 	<StartTime>%s</StartTime>
+	// 	<EndTime>%s</EndTime>
+	// 	<Secrecy>0</Secrecy>
+	// 	<Type>all</Type>
+	// 	</Query>`, d.sn, channel.DeviceID, startTime, endTime)
+	start, _ := strconv.ParseInt(startTime, 10, 0)
+	end, _ := strconv.ParseInt(endTime, 10, 0)
+	body := BuildRecordInfoXML(d.sn, channel.DeviceID, start, end)
 	request.SetBody(body, true)
 
 	resultCh := RecordQueryLink.WaitResult(d.ID, channel.DeviceID, d.sn, QUERY_RECORD_TIMEOUT)
@@ -340,20 +343,20 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	}
 	protocol := ""
 	networkType := "udp"
-	resuePort := true
+	reusePort := true
 	if conf.IsMediaNetworkTCP() {
 		networkType = "tcp"
 		protocol = "TCP/"
 		if conf.tcpPorts.Valid {
 			opt.MediaPort, err = conf.tcpPorts.GetPort()
 			opt.recyclePort = conf.tcpPorts.Recycle
-			resuePort = false
+			reusePort = false
 		}
 	} else {
 		if conf.udpPorts.Valid {
 			opt.MediaPort, err = conf.udpPorts.GetPort()
 			opt.recyclePort = conf.udpPorts.Recycle
-			resuePort = false
+			reusePort = false
 		}
 	}
 	if err != nil {
@@ -406,11 +409,20 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 					} else {
 						channel.Error("read invite response y ", zap.Error(err))
 					}
-					break
+					//break
+				}
+				if ls[0] == "m" && len(ls[1]) > 0 {
+					netinfo := strings.Split(ls[1], " ")
+					if strings.ToUpper(netinfo[2]) == "TCP/RTP/AVP" {
+						channel.Debug("Device support tcp")
+					} else {
+						channel.Debug("Device not support tcp")
+						networkType = "udp"
+					}
 				}
 			}
 		}
-		err = ps.Receive(streamPath, opt.dump, fmt.Sprintf("%s:%d", networkType, opt.MediaPort), opt.SSRC, resuePort)
+		err = ps.Receive(streamPath, opt.dump, fmt.Sprintf("%s:%d", networkType, opt.MediaPort), opt.SSRC, reusePort)
 		if err == nil {
 			PullStreams.Store(streamPath, &PullStream{
 				opt:       opt,
